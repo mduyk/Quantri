@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>ADMIN PANEL - DELTA SYSTEM</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        :root { --bg: #0a0a12; --card: #12121f; --cyan: #00f2ff; --red: #ff3e3e; --green: #00ff88; --gold: #ffcc00; }
+        body { background: var(--bg); color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; font-size: 14px; }
+        .box { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid #222; margin-bottom: 15px; }
+        h3 { color: var(--cyan); margin: 0 0 10px 0; font-size: 15px; text-transform: uppercase; border-left: 4px solid var(--cyan); padding-left: 8px; }
+        
+        /* Menu Tab */
+        .tabs { display: flex; gap: 5px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; }
+        .tab { padding: 10px 15px; background: #1a1a2e; border-radius: 8px; cursor: pointer; white-space: nowrap; font-size: 12px; border: 1px solid #333; color: #888; }
+        .tab.active { background: var(--cyan); color: #000; font-weight: bold; border-color: var(--cyan); }
+
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #333; background: #000; color: #fff; box-sizing: border-box; font-size: 14px; outline: none; }
+        input:focus { border-color: var(--cyan); }
+        button { border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-main { background: var(--cyan); color: #000; width: 100%; }
+        .btn-green { background: var(--green); color: #000; width: 100%; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+        th, td { padding: 10px; border-bottom: 1px solid #222; text-align: left; }
+        .log-item { padding: 10px; border-bottom: 1px solid #222; font-size: 11px; line-height: 1.4; background: #0000004d; margin-bottom: 5px; border-radius: 5px; }
+        .tag { padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: bold; margin-right: 5px; }
+        .tag-s1 { background: var(--cyan); color: #000; }
+        .tag-s2 { background: var(--gold); color: #000; }
+    </style>
+</head>
+<body>
+
+    <div class="tabs">
+        <div class="tab active" onclick="sw(1)">DUYỆT NẠP</div>
+        <div class="tab" onclick="sw(2)">LỊCH SỬ MUA</div>
+        <div class="tab" onclick="sw(3)">KHO KEY</div>
+        <div class="tab" onclick="sw(4)">THÀNH VIÊN</div>
+    </div>
+
+    <div id="p1" class="box">
+        <h3>💰 Yêu cầu nạp tiền</h3>
+        <div id="list-nap"><small>Đang kiểm tra yêu cầu...</small></div>
+    </div>
+
+    <div id="p2" class="box" style="display:none;">
+        <h3>🔔 Thông báo mua hàng mới</h3>
+        <div id="list-mua" style="max-height: 500px; overflow-y: auto;"></div>
+    </div>
+
+    <div id="p3" class="box" style="display:none;">
+        <h3>🔑 Nhập kho Key</h3>
+        <select id="sel-s" onchange="loadKStat()"><option value="shop1">SHOP 1 (Delta)</option><option value="shop2">SHOP 2 (Giá rẻ)</option></select>
+        <select id="sel-g"><option value="ngay">Gói Ngày</option><option value="tuan">Gói Tuần</option><option value="thang">Gói Tháng</option><option value="nam">Gói Năm</option></select>
+        <textarea id="k-in" rows="5" placeholder="Dán danh sách key vào đây..."></textarea>
+        <button class="btn-main" onclick="addK()">NHẬP KHO</button>
+        <div id="k-stat" style="margin-top:15px; font-size:12px; color:var(--cyan)"></div>
+        <button onclick="delPkg()" style="background:none; color:var(--red); font-size:11px; margin-top:20px; width:100%; border:1px solid var(--red)">❌ XÓA TRẮNG GÓI KEY NÀY</button>
+    </div>
+
+    <div id="p4" class="box" style="display:none;">
+        <h3>👤 Quản lý người dùng</h3>
+        <select id="sel-u-s"><option value="users_shop1">SHOP 1</option><option value="users_shop2">SHOP 2</option></select>
+        
+        <div style="border: 1px solid var(--green); padding: 10px; border-radius: 8px; margin: 10px 0;">
+            <small style="color:var(--green); font-weight:bold;">[+] TẠO TÀI KHOẢN MỚI</small>
+            <input type="text" id="add-u" placeholder="Tên đăng nhập mới...">
+            <input type="text" id="add-p" placeholder="Mật khẩu...">
+            <button class="btn-green" onclick="createNewUser()">XÁC NHẬN TẠO</button>
+        </div>
+
+        <div style="border: 1px solid var(--cyan); padding: 10px; border-radius: 8px; margin: 10px 0;">
+            <small style="color:var(--cyan); font-weight:bold;">[/] SỬA / NẠP TIỀN / XÓA</small>
+            <input type="text" id="edit-u" placeholder="Nhập đúng tên tài khoản cần sửa...">
+            <div style="display:flex; gap:5px;">
+                <input type="number" id="edit-amt" placeholder="Số dư mới...">
+                <input type="text" id="edit-p" placeholder="Mật khẩu mới...">
+            </div>
+            <button class="btn-main" onclick="updateUser()">CẬP NHẬT DỮ LIỆU</button>
+            <button onclick="deleteUser()" style="background:var(--red); color:#fff; margin-top:10px; width:100%; padding:10px; border-radius:8px; border:none; font-weight:bold;">🗑️ XÓA VĨNH VIỄN TÀI KHOẢN</button>
+        </div>
+    </div>
+
+<script>
+    const config = { apiKey: "AIzaSyBk6R1TDZeAxh37JQLgL_6Wl0v8m8Sg0", databaseURL: "https://shopctv-61f96-default-rtdb.asia-southeast1.firebasedatabase.app/" };
+    firebase.initializeApp(config);
+    const db = firebase.database();
+
+    function sw(n) {
+        for(let i=1;i<=4;i++) document.getElementById('p'+i).style.display = (i===n?'block':'none');
+        document.querySelectorAll('.tab').forEach((t,idx) => t.className = (idx+1===n?'tab active':'tab'));
+    }
+
+    // --- 1. DUYỆT NẠP ---
+    db.ref('bank_requests').on('value', s => {
+        const div = document.getElementById('list-nap'); div.innerHTML = "";
+        s.forEach(c => {
+            const d = c.val();
+            if(d.status === 'Pending') {
+                div.innerHTML += `<div class="log-item" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div><b>${d.user}</b> (${d.shop})<br><span style="color:var(--gold)">${Number(d.amount).toLocaleString()}đ</span></div>
+                    <div style="display:flex; gap:5px;">
+                        <button onclick="appr('${d.id}','${d.user}',${d.amount},'${d.shop}')" style="background:var(--green); padding:8px 15px;">✔</button>
+                        <button onclick="rejt('${d.id}')" style="background:var(--red); color:#fff; padding:8px 15px;">X</button>
+                    </div>
+                </div>`;
+            }
+        });
+        if(div.innerHTML==="") div.innerHTML="<small>Không có yêu cầu nào.</small>";
+    });
+    function appr(rid, u, a, s) {
+        db.ref(s+'/'+u+'/balance').transaction(cur => (cur||0)+Number(a), (err, comm) => {
+            if(comm) { db.ref('bank_requests/'+rid).update({status:'Success'}); db.ref('history_pay/'+u+'/'+rid).update({status:'Success'}); }
+        });
+    }
+    function rejt(rid) { db.ref('bank_requests/'+rid).update({status:'Fail'}); }
+
+    // --- 2. LỊCH SỬ MUA HÀNG ---
+    db.ref('history_keys').on('value', s => {
+        const div = document.getElementById('list-mua'); div.innerHTML = "";
+        let logs = [];
+        s.forEach(uNode => uNode.forEach(log => { let d = log.val(); d.name = uNode.key; logs.push(d); }));
+        logs.sort((a,b) => b.time > a.time ? 1 : -1);
+        logs.slice(0, 40).forEach(l => {
+            const tag = l.shop === 'users_shop2' ? '<span class="tag tag-s2">SHOP 2</span>' : '<span class="tag tag-s1">SHOP 1</span>';
+            div.innerHTML += `<div class="log-item">${tag} <b>${l.name}</b> mua <b>${l.key}</b><br><small style="color:#666">${l.time}</small></div>`;
+        });
+    });
+
+    // --- 3. QUẢN LÝ KEY ---
+    function loadKStat() {
+        const s = document.getElementById('sel-s').value;
+        db.ref('keys/'+s).on('value', snap => {
+            const d = snap.val() || {}; const c = (p) => d[p] ? Object.keys(d[p]).length : 0;
+            document.getElementById('k-stat').innerHTML = `THỐNG KÊ ${s.toUpperCase()}:<br>Ngày: ${c('ngay')} | Tuần: ${c('tuan')} | Tháng: ${c('thang')} | Năm: ${c('nam')}`;
+        });
+    }
+    loadKStat();
+    async function addK() {
+        const s = document.getElementById('sel-s').value, p = document.getElementById('sel-g').value, raw = document.getElementById('k-in').value;
+        if(!raw.trim()) return;
+        let ins = [...new Set(raw.split('\n').map(k=>k.trim()).filter(k=>k!==""))];
+        const snap = await db.ref('keys/'+s+'/'+p).once('value');
+        const exist = snap.val() ? Object.values(snap.val()) : [];
+        let toAdd = ins.filter(k => !exist.includes(k));
+        if(toAdd.length > 0) {
+            const up = {}; toAdd.forEach(k => { const id = db.ref('keys/'+s+'/'+p).push().key; up[id] = k; });
+            await db.ref('keys/'+s+'/'+p).update(up);
+            alert("Đã thêm " + toAdd.length + " key!"); document.getElementById('k-in').value = "";
+        } else alert("Key trùng!");
+    }
+    function delPkg() {
+        const s = document.getElementById('sel-s').value, p = document.getElementById('sel-g').value;
+        if(confirm("Xóa trắng gói này?")) db.ref('keys/'+s+'/'+p).remove();
+    }
+
+    // --- 4. THÀNH VIÊN ---
+    function createNewUser() {
+        const s = document.getElementById('sel-u-s').value, u = document.getElementById('add-u').value.trim().toLowerCase(), p = document.getElementById('add-p').value.trim();
+        if(!u || !p) return alert("Nhập đủ thông tin!");
+        db.ref(s+'/'+u).once('value', snap => {
+            if(snap.exists()) return alert("Tên này đã tồn tại!");
+            db.ref(s+'/'+u).set({ password: p, balance: 0 }).then(() => {
+                alert("Đã tạo xong acc: " + u); document.getElementById('add-u').value=""; document.getElementById('add-p').value="";
+            });
+        });
+    }
+
+    function updateUser() {
+        const s = document.getElementById('sel-u-s').value, u = document.getElementById('edit-u').value.trim().toLowerCase(), p = document.getElementById('edit-p').value.trim(), a = document.getElementById('edit-amt').value;
+        if(!u) return alert("Nhập tên khách!");
+        let data = {};
+        if(p) data.password = p;
+        if(a !== "") data.balance = Number(a);
+        db.ref(s+'/'+u).update(data).then(() => alert("Cập nhật thành công!"));
+    }
+
+    function deleteUser() {
+        const s = document.getElementById('sel-u-s').value, u = document.getElementById('edit-u').value.trim().toLowerCase();
+        if(!u) return alert("Nhập tên khách cần xóa!");
+        if(confirm("Xóa vĩnh viễn tài khoản " + u + "?")) db.ref(s+'/'+u).remove().then(() => alert("Đã xóa vĩnh viễn!"));
+    }
+</script>
+</body>
+</html>
